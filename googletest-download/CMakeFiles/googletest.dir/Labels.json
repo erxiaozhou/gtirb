@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/media/other/home/eschulte/lisp/local-projects/gtirb/googletest-download/CMakeFiles/googletest"
+		},
+		{
+			"file" : "/media/other/home/eschulte/lisp/local-projects/gtirb/googletest-download/CMakeFiles/googletest.rule"
+		},
+		{
+			"file" : "/media/other/home/eschulte/lisp/local-projects/gtirb/googletest-download/CMakeFiles/googletest-complete.rule"
+		},
+		{
+			"file" : "/media/other/home/eschulte/lisp/local-projects/gtirb/googletest-download/googletest-prefix/src/googletest-stamp/googletest-install.rule"
+		},
+		{
+			"file" : "/media/other/home/eschulte/lisp/local-projects/gtirb/googletest-download/googletest-prefix/src/googletest-stamp/googletest-mkdir.rule"
+		},
+		{
+			"file" : "/media/other/home/eschulte/lisp/local-projects/gtirb/googletest-download/googletest-prefix/src/googletest-stamp/googletest-download.rule"
+		},
+		{
+			"file" : "/media/other/home/eschulte/lisp/local-projects/gtirb/googletest-download/googletest-prefix/src/googletest-stamp/googletest-update.rule"
+		},
+		{
+			"file" : "/media/other/home/eschulte/lisp/local-projects/gtirb/googletest-download/googletest-prefix/src/googletest-stamp/googletest-patch.rule"
+		},
+		{
+			"file" : "/media/other/home/eschulte/lisp/local-projects/gtirb/googletest-download/googletest-prefix/src/googletest-stamp/googletest-configure.rule"
+		},
+		{
+			"file" : "/media/other/home/eschulte/lisp/local-projects/gtirb/googletest-download/googletest-prefix/src/googletest-stamp/googletest-build.rule"
+		},
+		{
+			"file" : "/media/other/home/eschulte/lisp/local-projects/gtirb/googletest-download/googletest-prefix/src/googletest-stamp/googletest-test.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"googletest"
+		],
+		"name" : "googletest"
+	}
+}

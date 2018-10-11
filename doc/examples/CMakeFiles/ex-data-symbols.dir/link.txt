@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/ex-data-symbols.dir/data-symbols.cpp.o  -o ../../bin/ex-data-symbols  -Wl,-rpath,/home/eschulte/lisp/local-projects/gtirb/lib ../../lib/libgtirb.so.1.2.0 -ldl 

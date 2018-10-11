@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/ex-functions.dir/functions.cpp.o  -o ../../bin/ex-functions  -Wl,-rpath,/home/eschulte/lisp/local-projects/gtirb/lib ../../lib/libgtirb.so.1.2.0 ../../lib/libproto.a -ldl /usr/lib/libprotobuf.so -lpthread 

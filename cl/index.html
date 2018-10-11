@@ -1,0 +1,2281 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html> 
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>GTIRB/GTIRB</title>
+  <style type="text/css">
+  pre { padding:5px; background-color:#e0e0e0 }
+  h3, h4 { text-decoration: underline; }
+  a { text-decoration: none; padding: 1px 2px 1px 2px; }
+  a:visited { text-decoration: none; padding: 1px 2px 1px 2px; }
+  a:hover { text-decoration: none; padding: 1px 1px 1px 1px; border: 1px solid #000000; } 
+  a:focus { text-decoration: none; padding: 1px 2px 1px 2px; border: none; }
+  a.none { text-decoration: none; padding: 0; }
+  a.none:visited { text-decoration: none; padding: 0; } 
+  a.none:hover { text-decoration: none; border: none; padding: 0; } 
+  a.none:focus { text-decoration: none; border: none; padding: 0; } 
+  a.noborder { text-decoration: none; padding: 0; } 
+  a.noborder:visited { text-decoration: none; padding: 0; } 
+  a.noborder:hover { text-decoration: none; border: none; padding: 0; } 
+  a.noborder:focus { text-decoration: none; border: none; padding: 0; }  
+  pre.none { padding:5px; background-color:#ffffff }
+  </style>
+</head>
+
+
+<h1>Common Lisp library for GTIRB</h1>
+
+<p>
+The Common Lisp API for GrammaTech's IR for Binaries (GTIRB).  GTIRB
+is a data structure designed to support the analysis and rewriting of
+binary executables.  There are a number of tools that produce, process
+and consume GTIRB.  See the following for more information on GTIRB:
+</p>
+<ul>
+<li>
+<a href="https://github.com/grammatech/gtirb">https://github.com/grammatech/gtirb</a> the main GTIRB source repository.
+</li>
+<li>
+<a href="https://grammatech.github.io/gtirb/">https://grammatech.github.io/gtirb/</a> the GTIRB manual repository.
+</li>
+<li>
+<a href="https://arxiv.org/abs/1907.02859">https://arxiv.org/abs/1907.02859</a> a white-paper describing the design goals of GTIRB.
+</li>
+<li>
+<a href="https://github.com/grammatech/ddisasm">https://github.com/grammatech/ddisasm</a> a very high performance reassembleable disassembler producing GTIRB.
+</li>
+<li>
+<a href="https://github.com/grammatech/gtirb-pprinter">https://github.com/grammatech/gtirb-pprinter</a> a pretty printer from GTIRB to assembler.
+</li>
+</ul>
+
+
+<h2>Requirements and Installation</h2>
+
+<p>
+Hopefully, eventually, it will be possible to install everything by
+(1) installing
+<a href="https://developers.google.com/protocol-buffers/">Protobuf</a>, version
+3.7.0 or later, and then (2) installing this Common Lisp GTIRB library
+with QuickLisp <code>(ql:quickload :gtirb)</code>.
+</p>
+<p>
+We're a ways away from that currently.  So after you've installed
+Protobuf, you should clone and install the Common Lisp <code>PROTOBUF</code>
+package manually according to the instructions at
+<a href="https://github.com/brown/protobuf">https://github.com/brown/protobuf</a>
+ensuring that the <code>protoc-gen-lisp</code> executable has been built and is
+on your path.  At that point you should be able to load the GTIRB
+package.
+</p>
+
+<h2>Usage</h2>
+
+<p>
+The Common Lisp API attempts to provide access to the underlying GTIRB
+data-structure described above in idiomatic common lisp.  The main
+Protobuf data structures are wrapped in CLOS objects.  All fields are
+modifiable with <code>setf</code>.  Invariant are maintained automatically by the
+API, e.g. using <code>:around</code> methods.
+</p>
+<p>
+In some cases accessors are provided beyond the fields directly
+present in the Protobuf.  For example, every GTIRB element has a UUID
+(which supports referencing elements from AuxData tables).  The Common
+Lisp API provides uniform access to any element through the <code>get-uuid</code>
+method which operates similarly to <code>gethash</code> only it may be called on
+any top-level GTIRB <code>IR</code> object (which itself maintains a hash of
+every contained element by UUID).
+</p>
+<p>
+The GTIRB CFG is represented as a graph using the Common Lisp graph
+library from
+<a href="https://github.com/eschulte/graph">https://github.com/eschulte/graph</a>.
+This simple representation should promote easy exploration and
+modification of the control flow graph, and the many graph analysis
+functions defined in that library may be directly applied to the CFG.
+Every node of the graph holds the UUID for a code block.
+</p>
+<p>
+The bytes of any code and data block may be accessed by calling the
+<code>bytes</code> method, which provides directly access to the bytes of the
+block's <code>byte-interval</code>.
+</p>
+
+<h3>Example Usage</h3>
+
+<p>
+See the test suite for a large number of basic usage examples.
+However, the following gives a simple usage example.
+</p>
+<ol>
+<li>
+<p>
+From the command-line.  Use the datalog disassembler <code>ddisasm</code> to disassemble the <code>ls</code> executable into a GTIRB instance.
+
+</p>
+<pre><code>ddisasm --ir $(which ls) /tmp/ls.gtirb</code></pre>
+
+</li>
+<li>
+<p>
+From the Common Lisp REPL.  Load the GTIRB API, and then load the GTIRB instance created in step (1) into a common lisp GTIRB object.
+
+</p>
+<pre><code>(ql:quickload :gtirb)
+(use-package :gtirb)
+(defparameter ls (read-gtirb "/tmp/ls.gtirb"))</code></pre>
+
+</li>
+<li>
+<p>
+At this point you can explore the CFG, perform analyses, or even modify the contents of the GTIRB object.  Results of analyses may be saved into new AuxData tables which become part of the GTIRB object for later use by other sessions or by other tools potentially written in other languages.
+
+</p>
+<pre><code>;; Do stuff with the GTIRB, maybe make changes.</code></pre>
+
+</li>
+<li>
+<p>
+Finally, the resulting GTIRB object may be written back to the file system.
+
+</p>
+<pre><code>(write-gtirb ls "/tmp/ls-modified.gtirb")</code></pre>
+
+</li>
+<li>
+<p>
+At the command line.  A new executable may be created from the modified gtirb file using the <code>gtirb-pprinter</code>.
+
+</p>
+<pre><code>gtirb-pprinter --ir /tmp/ls-modified.gtirb --binary /tmp/ls-modified</code></pre>
+
+</li>
+</ol>
+
+<h2><a class=none name="dictionary">The GTIRB/GTIRB dictionary</a></h2>
+<ol>
+      <li><a href="#*is-equal-p-verbose-p*"><code>*is-equal-p-verbose-p*</code></a></li>
+      <li><a href="#address"><code>address</code></a></li>
+      <li><a href="#address-range"><code>address-range</code></a></li>
+      <li><a href="#addressp"><code>addressp</code></a></li>
+      <li><a href="#at-address"><code>at-address</code></a></li>
+      <li><a href="#at-end"><code>at-end</code></a></li>
+      <li><a href="#aux-data"><code>aux-data</code></a></li>
+      <li><a href="#aux-data"><code>aux-data</code></a></li>
+      <li><a href="#aux-data-data"><code>aux-data-data</code></a></li>
+      <li><a href="#aux-data-type"><code>aux-data-type</code></a></li>
+      <li><a href="#binary-path"><code>binary-path</code></a></li>
+      <li><a href="#blocks"><code>blocks</code></a></li>
+      <li><a href="#byte-interval"><code>byte-interval</code></a></li>
+      <li><a href="#byte-interval"><code>byte-interval</code></a></li>
+      <li><a href="#byte-intervals"><code>byte-intervals</code></a></li>
+      <li><a href="#bytes"><code>bytes</code></a></li>
+      <li><a href="#cfg"><code>cfg</code></a></li>
+      <li><a href="#code-block"><code>code-block</code></a></li>
+      <li><a href="#conditional"><code>conditional</code></a></li>
+      <li><a href="#contents"><code>contents</code></a></li>
+      <li><a href="#data-block"><code>data-block</code></a></li>
+      <li><a href="#decode-mode"><code>decode-mode</code></a></li>
+      <li><a href="#direct"><code>direct</code></a></li>
+      <li><a href="#edge-label"><code>edge-label</code></a></li>
+      <li><a href="#edge-type"><code>edge-type</code></a></li>
+      <li><a href="#entry-point"><code>entry-point</code></a></li>
+      <li><a href="#file-format"><code>file-format</code></a></li>
+      <li><a href="#flags"><code>flags</code></a></li>
+      <li><a href="#get-uuid"><code>get-uuid</code></a></li>
+      <li><a href="#gtirb"><code>gtirb</code></a></li>
+      <li><a href="#gtirb"><code>gtirb</code></a></li>
+      <li><a href="#gtirb-block"><code>gtirb-block</code></a></li>
+      <li><a href="#gtirb-byte-block"><code>gtirb-byte-block</code></a></li>
+      <li><a href="#gtirb-node"><code>gtirb-node</code></a></li>
+      <li><a href="#gtirb-version"><code>gtirb-version</code></a></li>
+      <li><a href="#ir"><code>ir</code></a></li>
+      <li><a href="#ir"><code>ir</code></a></li>
+      <li><a href="#is-equal-p"><code>is-equal-p</code></a></li>
+      <li><a href="#isa"><code>isa</code></a></li>
+      <li><a href="#module"><code>module</code></a></li>
+      <li><a href="#module"><code>module</code></a></li>
+      <li><a href="#modules"><code>modules</code></a></li>
+      <li><a href="#name"><code>name</code></a></li>
+      <li><a href="#offset"><code>offset</code></a></li>
+      <li><a href="#on-address"><code>on-address</code></a></li>
+      <li><a href="#payload"><code>payload</code></a></li>
+      <li><a href="#preferred-addr"><code>preferred-addr</code></a></li>
+      <li><a href="#protobuf-version"><code>protobuf-version</code></a></li>
+      <li><a href="#proxies"><code>proxies</code></a></li>
+      <li><a href="#read-gtirb"><code>read-gtirb</code></a></li>
+      <li><a href="#rebase-delta"><code>rebase-delta</code></a></li>
+      <li><a href="#remove-uuid"><code>remove-uuid</code></a></li>
+      <li><a href="#scale"><code>scale</code></a></li>
+      <li><a href="#section"><code>section</code></a></li>
+      <li><a href="#section"><code>section</code></a></li>
+      <li><a href="#sections"><code>sections</code></a></li>
+      <li><a href="#size"><code>size</code></a></li>
+      <li><a href="#sym-addr-addr"><code>sym-addr-addr</code></a></li>
+      <li><a href="#sym-addr-const"><code>sym-addr-const</code></a></li>
+      <li><a href="#sym-stack-const"><code>sym-stack-const</code></a></li>
+      <li><a href="#symbol"><code>symbol</code></a></li>
+      <li><a href="#symbolic-expressions"><code>symbolic-expressions</code></a></li>
+      <li><a href="#symbols"><code>symbols</code></a></li>
+      <li><a href="#update-proto"><code>update-proto</code></a></li>
+      <li><a href="#uuid"><code>uuid</code></a></li>
+      <li><a href="#value"><code>value</code></a></li>
+      <li><a href="#version"><code>version</code></a></li>
+      <li><a href="#write-gtirb"><code>write-gtirb</code></a></li>
+
+</ol>
+
+<!-- Entry for *IS-EQUAL-P-VERBOSE-P* -->
+
+<p><br>[Special variable]<br><a class=none name='*is-equal-p-verbose-p*'><b>*is-equal-p-verbose-p*</b></a>
+<blockquote><br>
+
+Compare equality verbosely in the <code>is-equal-p</code> function.
+This may be useful to print contextual information when an equality
+comparison fails for a large object with many nested objects.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for *IS-EQUAL-P-VERBOSE-P* -->
+
+
+<!-- Entry for ADDRESS -->
+
+<p><br>[Generic accessor]<br><a class=none name='address'><b>address</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>address</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ADDRESS -->
+
+
+<!-- Entry for ADDRESS -->
+
+<p><br>[Method]<br><a class=none><b>address</b> <i>(obj gtirb-byte-block)</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ADDRESS -->
+
+
+<!-- Entry for ADDRESS -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>address</b> <i>(obj byte-interval)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>address</b> <i>(obj byte-interval)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ADDRESS -->
+
+
+<!-- Entry for ADDRESS -->
+
+<p><br>[Method]<br><a class=none><b>address</b> <i>(obj section)</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ADDRESS -->
+
+
+<!-- Entry for ADDRESS-RANGE -->
+
+<p><br>[Generic function]<br><a class=none name='address-range'><b>address-range</b> <i>proto-backed-object</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+Return any address range of the PROTO-BACKED-OBJECT GTIRB object.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for ADDRESS-RANGE -->
+
+
+<!-- Entry for ADDRESSP -->
+
+<p><br>[Generic accessor]<br><a class=none name='addressp'><b>addressp</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>addressp</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ADDRESSP -->
+
+
+<!-- Entry for ADDRESSP -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>addressp</b> <i>(obj byte-interval)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>addressp</b> <i>(obj byte-interval)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Does this byte-interval have an address.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for ADDRESSP -->
+
+
+<!-- Entry for AT-ADDRESS -->
+
+<p><br>[Generic function]<br><a class=none name='at-address'><b>at-address</b> <i>object address</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+Find all objects in OBJECT starting at ADDRESS.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for AT-ADDRESS -->
+
+
+<!-- Entry for AT-END -->
+
+<p><br>[Generic accessor]<br><a class=none name='at-end'><b>at-end</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>at-end</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for AT-END -->
+
+
+<!-- Entry for AT-END -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>at-end</b> <i>(obj symbol)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>at-end</b> <i>(obj symbol)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for AT-END -->
+
+
+<!-- Entry for AUX-DATA -->
+
+<p><br>[Standard class]<br><a class=none name='aux-data'><b>aux-data</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for AUX-DATA -->
+
+
+<!-- Entry for AUX-DATA -->
+
+<p><br>[Generic accessor]<br><a class=none name='aux-data'><b>aux-data</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>aux-data</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for AUX-DATA -->
+
+
+<!-- Entry for AUX-DATA -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>aux-data</b> <i>(object module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>aux-data</b> <i>(object module)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+A-list of auxiliary data objects keyed by string name.
+Aux-Data tables may hold structured or unstructured data.  This data
+may refer to elements of the GTIRB IR through uuids.  Information
+relevant to a particular module will be stored in Aux-Data tables
+accessible from the specific module.  Aux-Data tables only exist on
+modules and on GTIRB IR instances.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for AUX-DATA -->
+
+
+<!-- Entry for AUX-DATA -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>aux-data</b> <i>(object gtirb)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>aux-data</b> <i>(object gtirb)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+A-list of auxiliary data objects keyed by string name.
+Aux-Data tables may hold structured or unstructured data.  This data
+may refer to elements of the GTIRB IR through uuids.  Information
+relevant to a particular module will be stored in Aux-Data tables
+accessible from the specific module.  Aux-Data tables only exist on
+modules and on GTIRB IR instances.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for AUX-DATA -->
+
+
+<!-- Entry for AUX-DATA-DATA -->
+
+<p><br>[Generic accessor]<br><a class=none name='aux-data-data'><b>aux-data-data</b> <i>aux-data</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>aux-data-data</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the structured representation of AUX-DATAs data.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for AUX-DATA-DATA -->
+
+
+<!-- Entry for AUX-DATA-TYPE -->
+
+<p><br>[Generic accessor]<br><a class=none name='aux-data-type'><b>aux-data-type</b> <i>aux-data</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>aux-data-type</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the structured type of AUX-DATA.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for AUX-DATA-TYPE -->
+
+
+<!-- Entry for BINARY-PATH -->
+
+<p><br>[Generic accessor]<br><a class=none name='binary-path'><b>binary-path</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>binary-path</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for BINARY-PATH -->
+
+
+<!-- Entry for BINARY-PATH -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>binary-path</b> <i>(obj module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>binary-path</b> <i>(obj module)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+The path or filename for this module.
+E.g, the name of a dynamically loaded library or of the main
+executable.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for BINARY-PATH -->
+
+
+<!-- Entry for BLOCKS -->
+
+<p><br>[Generic accessor]<br><a class=none name='blocks'><b>blocks</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>blocks</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for BLOCKS -->
+
+
+<!-- Entry for BLOCKS -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>blocks</b> <i>(object byte-interval)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>blocks</b> <i>(object byte-interval)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Blocks in this byte-interval.
+This list could include <code>code-block</code> or <code>data-block</code> elements (which
+both subclass the <code>gtirb-byte-block</code> class) but not <code>proxy-block</code>
+elements as proxy blocks do not hold bytes.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for BLOCKS -->
+
+
+<!-- Entry for BYTE-INTERVAL -->
+
+<p><br>[Standard class]<br><a class=none name='byte-interval'><b>byte-interval</b></a>
+<blockquote><br>
+
+Byte-interval in a GTIRB instance.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for BYTE-INTERVAL -->
+
+
+<!-- Entry for BYTE-INTERVAL -->
+
+<p><br>[Generic accessor]<br><a class=none name='byte-interval'><b>byte-interval</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>byte-interval</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for BYTE-INTERVAL -->
+
+
+<!-- Entry for BYTE-INTERVAL -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>byte-interval</b> <i>(object data-block)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>byte-interval</b> <i>(object data-block)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the BYTE-INTERVAL of this DATA-BLOCK.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for BYTE-INTERVAL -->
+
+
+<!-- Entry for BYTE-INTERVAL -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>byte-interval</b> <i>(object code-block)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>byte-interval</b> <i>(object code-block)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the BYTE-INTERVAL of this CODE-BLOCK.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for BYTE-INTERVAL -->
+
+
+<!-- Entry for BYTE-INTERVALS -->
+
+<p><br>[Generic accessor]<br><a class=none name='byte-intervals'><b>byte-intervals</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>byte-intervals</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for BYTE-INTERVALS -->
+
+
+<!-- Entry for BYTE-INTERVALS -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>byte-intervals</b> <i>(object section)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>byte-intervals</b> <i>(object section)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Byte-intervals holding all of the section's bytes.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for BYTE-INTERVALS -->
+
+
+<!-- Entry for BYTES -->
+
+<p><br>[Generic function]<br><a class=none name='bytes'><b>bytes</b> <i>object <tt>&amp;optional</tt> start end</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+Return the bytes held by OBJECT.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for BYTES -->
+
+
+<!-- Entry for CFG -->
+
+<p><br>[Generic accessor]<br><a class=none name='cfg'><b>cfg</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>cfg</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for CFG -->
+
+
+<!-- Entry for CFG -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>cfg</b> <i>(object gtirb)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>cfg</b> <i>(object gtirb)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Control flow graph (CFG) represented as a <code>graph:digraph</code>.
+Nodes in the graph hold the UUIDs of code blocks which may be looked
+up using <code>get-uuid</code>.  Edges on the graph are labeled with <code>edge-label</code>
+objects which provide information on the nature of the control flow of
+the graph.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for CFG -->
+
+
+<!-- Entry for CODE-BLOCK -->
+
+<p><br>[Standard class]<br><a class=none name='code-block'><b>code-block</b></a>
+<blockquote><br>
+
+Code-block in a GTIRB IR instance.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for CODE-BLOCK -->
+
+
+<!-- Entry for CONDITIONAL -->
+
+<p><br>[Generic accessor]<br><a class=none name='conditional'><b>conditional</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>conditional</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for CONDITIONAL -->
+
+
+<!-- Entry for CONDITIONAL -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>conditional</b> <i>(obj edge-label)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>conditional</b> <i>(obj edge-label)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+This is true if this edge is due to a conditional
+instruction.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for CONDITIONAL -->
+
+
+<!-- Entry for CONTENTS -->
+
+<p><br>[Generic accessor]<br><a class=none name='contents'><b>contents</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>contents</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for CONTENTS -->
+
+
+<!-- Entry for CONTENTS -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>contents</b> <i>(obj byte-interval)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>contents</b> <i>(obj byte-interval)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+A vector holding the actual bytes of this byte interval.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for CONTENTS -->
+
+
+<!-- Entry for DATA-BLOCK -->
+
+<p><br>[Standard class]<br><a class=none name='data-block'><b>data-block</b></a>
+<blockquote><br>
+
+Data-block in a GTIRB IR instance.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for DATA-BLOCK -->
+
+
+<!-- Entry for DECODE-MODE -->
+
+<p><br>[Generic accessor]<br><a class=none name='decode-mode'><b>decode-mode</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>decode-mode</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DECODE-MODE -->
+
+
+<!-- Entry for DECODE-MODE -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>decode-mode</b> <i>(obj code-block)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>decode-mode</b> <i>(obj code-block)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Only present on architecture with multiple decode-modes.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for DECODE-MODE -->
+
+
+<!-- Entry for DIRECT -->
+
+<p><br>[Generic accessor]<br><a class=none name='direct'><b>direct</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>direct</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DIRECT -->
+
+
+<!-- Entry for DIRECT -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>direct</b> <i>(obj edge-label)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>direct</b> <i>(obj edge-label)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Is this a direct (as opposed to indirect) control flow edge.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for DIRECT -->
+
+
+<!-- Entry for EDGE-LABEL -->
+
+<p><br>[Standard class]<br><a class=none name='edge-label'><b>edge-label</b></a>
+<blockquote><br>
+
+Label on a CFG edge.
+This indicates the type of control flow along this edge.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for EDGE-LABEL -->
+
+
+<!-- Entry for EDGE-TYPE -->
+
+<p><br>[Generic accessor]<br><a class=none name='edge-type'><b>edge-type</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>edge-type</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for EDGE-TYPE -->
+
+
+<!-- Entry for EDGE-TYPE -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>edge-type</b> <i>(obj edge-label)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>edge-type</b> <i>(obj edge-label)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+The type of an edge indicates the nature of the
+control flow along it.  E.g., "branch," "call," "fallthrough,"
+and "return" are examples.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for EDGE-TYPE -->
+
+
+<!-- Entry for ENTRY-POINT -->
+
+<p><br>[Generic accessor]<br><a class=none name='entry-point'><b>entry-point</b> <i>module</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>entry-point</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+The code-block which is the entry point of MODULE.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for ENTRY-POINT -->
+
+
+<!-- Entry for FILE-FORMAT -->
+
+<p><br>[Generic accessor]<br><a class=none name='file-format'><b>file-format</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>file-format</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FILE-FORMAT -->
+
+
+<!-- Entry for FILE-FORMAT -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>file-format</b> <i>(obj module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>file-format</b> <i>(obj module)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+The binary file format of the original file this
+module represents.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for FILE-FORMAT -->
+
+
+<!-- Entry for FLAGS -->
+
+<p><br>[Generic accessor]<br><a class=none name='flags'><b>flags</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>flags</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FLAGS -->
+
+
+<!-- Entry for FLAGS -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>flags</b> <i>(obj section)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>flags</b> <i>(obj section)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Flags holding common properties of this section.
+These flags only hold those section properties which are relatively
+universal including read, write, execute permissions, whether the
+section is loaded into memory at run-time or not, whether the section
+is zero initialized, and whether the section is thread-local.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for FLAGS -->
+
+
+<!-- Entry for GET-UUID -->
+
+<p><br>[Generic accessor]<br><a class=none name='get-uuid'><b>get-uuid</b> <i>uuid object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>get-uuid</b> <i>uuid object</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Get the referent of UUID in OBJECT.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for GET-UUID -->
+
+
+<!-- Entry for GTIRB -->
+
+<p><br>[Standard class]<br><a class=none name='gtirb'><b>gtirb</b></a>
+<blockquote><br>
+
+Base class of an instance of GTIRB IR.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for GTIRB -->
+
+
+<!-- Entry for GTIRB -->
+
+<p><br>[Generic accessor]<br><a class=none name='gtirb'><b>gtirb</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>gtirb</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for GTIRB -->
+
+
+<!-- Entry for GTIRB -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>gtirb</b> <i>(object module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>gtirb</b> <i>(object module)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the GTIRB of this MODULE.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for GTIRB -->
+
+
+<!-- Entry for GTIRB-BLOCK -->
+
+<p><br>[Standard class]<br><a class=none name='gtirb-block'><b>gtirb-block</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for GTIRB-BLOCK -->
+
+
+<!-- Entry for GTIRB-BYTE-BLOCK -->
+
+<p><br>[Standard class]<br><a class=none name='gtirb-byte-block'><b>gtirb-byte-block</b></a>
+<blockquote><br>
+
+Super-class of the <code>code-block</code> and <code>data-block</code> classes.
+This class abstracts over all GTIRB blocks which are able to hold bytes.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for GTIRB-BYTE-BLOCK -->
+
+
+<!-- Entry for GTIRB-NODE -->
+
+<p><br>[Standard class]<br><a class=none name='gtirb-node'><b>gtirb-node</b></a>
+<blockquote><br>
+
+Objects with a UUID contained in a GTIRB instance.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for GTIRB-NODE -->
+
+
+<!-- Entry for GTIRB-VERSION -->
+
+<p><br>[Constant]<br><a class=none name='gtirb-version'><b>gtirb-version</b></a>
+<blockquote><br>
+
+GTIRB Version as a string of "MAJOR.MINOR.PATCH".
+
+
+
+
+</blockquote>
+
+<!-- End of entry for GTIRB-VERSION -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Condition type]<br><a class=none name='ir'><b>ir</b></a>
+<blockquote><br>
+
+Condition raised on GTIRB data structure violations.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Generic accessor]<br><a class=none name='ir'><b>ir</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object aux-data)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object aux-data)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this AUX-DATA.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object proxy-block)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object proxy-block)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this PROXY-BLOCK.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object data-block)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object data-block)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this DATA-BLOCK.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object code-block)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object code-block)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this CODE-BLOCK.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object sym-addr-addr)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object sym-addr-addr)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this SYM-ADDR-ADDR.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object sym-addr-const)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object sym-addr-const)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this SYM-ADDR-CONST.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object sym-stack-const)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object sym-stack-const)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this SYM-STACK-CONST.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object byte-interval)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object byte-interval)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this BYTE-INTERVAL.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object section)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object section)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this SECTION.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object symbol)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object symbol)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this SYMBOL.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object edge-label)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object edge-label)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this EDGE-LABEL.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object module)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the top-level IR of this MODULE.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>ir</b> <i>(object gtirb)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>ir</b> <i>(object gtirb)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for IR -->
+
+
+<!-- Entry for IS-EQUAL-P -->
+
+<p><br>[Function]<br><a class=none name='is-equal-p'><b>is-equal-p</b> <i>left right</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+Return t if LEFT and RIGHT are equal.
+Recursively descend into any sub-structure.  Custom recursive equality
+predicates are defined for common Common Lisp data structures as well
+as all GTIRB structures.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for IS-EQUAL-P -->
+
+
+<!-- Entry for ISA -->
+
+<p><br>[Generic accessor]<br><a class=none name='isa'><b>isa</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>isa</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ISA -->
+
+
+<!-- Entry for ISA -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>isa</b> <i>(obj module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>isa</b> <i>(obj module)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+The instruction set architecture (ISA) of the code in this module.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for ISA -->
+
+
+<!-- Entry for MODULE -->
+
+<p><br>[Standard class]<br><a class=none name='module'><b>module</b></a>
+<blockquote><br>
+
+Module of a GTIRB IR instance.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for MODULE -->
+
+
+<!-- Entry for MODULE -->
+
+<p><br>[Generic accessor]<br><a class=none name='module'><b>module</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>module</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MODULE -->
+
+
+<!-- Entry for MODULE -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>module</b> <i>(object proxy-block)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>module</b> <i>(object proxy-block)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the MODULE of this PROXY-BLOCK.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for MODULE -->
+
+
+<!-- Entry for MODULE -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>module</b> <i>(object section)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>module</b> <i>(object section)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the MODULE of this SECTION.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for MODULE -->
+
+
+<!-- Entry for MODULE -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>module</b> <i>(object symbol)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>module</b> <i>(object symbol)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the MODULE of this SYMBOL.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for MODULE -->
+
+
+<!-- Entry for MODULES -->
+
+<p><br>[Generic accessor]<br><a class=none name='modules'><b>modules</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>modules</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MODULES -->
+
+
+<!-- Entry for MODULES -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>modules</b> <i>(object gtirb)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>modules</b> <i>(object gtirb)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+List of the modules on a top-level GTIRB IR instance.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for MODULES -->
+
+
+<!-- Entry for NAME -->
+
+<p><br>[Generic accessor]<br><a class=none name='name'><b>name</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>name</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for NAME -->
+
+
+<!-- Entry for NAME -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>name</b> <i>(obj section)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>name</b> <i>(obj section)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Name of this section.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for NAME -->
+
+
+<!-- Entry for NAME -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>name</b> <i>(obj symbol)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>name</b> <i>(obj symbol)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for NAME -->
+
+
+<!-- Entry for NAME -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>name</b> <i>(obj module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>name</b> <i>(obj module)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+An optional human-readable name for this module.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for NAME -->
+
+
+<!-- Entry for OFFSET -->
+
+<p><br>[Generic accessor]<br><a class=none name='offset'><b>offset</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>offset</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for OFFSET -->
+
+
+<!-- Entry for OFFSET -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>offset</b> <i>(obj data-block)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>offset</b> <i>(obj data-block)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Offset into this block's bytes in the block's byte-interval.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for OFFSET -->
+
+
+<!-- Entry for OFFSET -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>offset</b> <i>(obj code-block)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>offset</b> <i>(obj code-block)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Offset into this block's bytes in the block's byte-interval.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for OFFSET -->
+
+
+<!-- Entry for OFFSET -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>offset</b> <i>(obj sym-addr-addr)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>offset</b> <i>(obj sym-addr-addr)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for OFFSET -->
+
+
+<!-- Entry for OFFSET -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>offset</b> <i>(obj sym-addr-const)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>offset</b> <i>(obj sym-addr-const)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for OFFSET -->
+
+
+<!-- Entry for OFFSET -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>offset</b> <i>(obj sym-stack-const)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>offset</b> <i>(obj sym-stack-const)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for OFFSET -->
+
+
+<!-- Entry for ON-ADDRESS -->
+
+<p><br>[Generic function]<br><a class=none name='on-address'><b>on-address</b> <i>object start-address <tt>&amp;optional</tt> end-address</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+Find all objects in OBJECT between START-ADDRESS and END-ADDRESS.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for ON-ADDRESS -->
+
+
+<!-- Entry for PAYLOAD -->
+
+<p><br>[Generic accessor]<br><a class=none name='payload'><b>payload</b> <i>symbol</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>payload</b> <i>symbol</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Provide access to the referent or value of SYMBOL.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for PAYLOAD -->
+
+
+<!-- Entry for PREFERRED-ADDR -->
+
+<p><br>[Generic accessor]<br><a class=none name='preferred-addr'><b>preferred-addr</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>preferred-addr</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for PREFERRED-ADDR -->
+
+
+<!-- Entry for PREFERRED-ADDR -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>preferred-addr</b> <i>(obj module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>preferred-addr</b> <i>(obj module)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Some systems specify a preferred address in memory.
+On those systems this field may be used to capture this address.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for PREFERRED-ADDR -->
+
+
+<!-- Entry for PROTOBUF-VERSION -->
+
+<p><br>[Constant]<br><a class=none name='protobuf-version'><b>protobuf-version</b></a>
+<blockquote><br>
+
+GTIRB Protobuf Version as a non-negative integer.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for PROTOBUF-VERSION -->
+
+
+<!-- Entry for PROXIES -->
+
+<p><br>[Generic accessor]<br><a class=none name='proxies'><b>proxies</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>proxies</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for PROXIES -->
+
+
+<!-- Entry for PROXIES -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>proxies</b> <i>(object module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>proxies</b> <i>(object module)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Hash-table of proxy-blocks keyed by UUID.
+Proxy-blocks in GTIRB are used to represent cross-module linkages.
+For example when code in a module calls to a function defined in an
+external library, the CFG for that IR instance may represent this call
+with a call edge to a proxy block representing the external called
+function.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for PROXIES -->
+
+
+<!-- Entry for READ-GTIRB -->
+
+<p><br>[Generic function]<br><a class=none name='read-gtirb'><b>read-gtirb</b> <i>source</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+Read a protobuf serialized GTIRB instance from SOURCE.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for READ-GTIRB -->
+
+
+<!-- Entry for REBASE-DELTA -->
+
+<p><br>[Generic accessor]<br><a class=none name='rebase-delta'><b>rebase-delta</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>rebase-delta</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for REBASE-DELTA -->
+
+
+<!-- Entry for REBASE-DELTA -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>rebase-delta</b> <i>(obj module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>rebase-delta</b> <i>(obj module)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+The difference between this module's and
+<code>preferred-addr</code> and the address at which it was actually loaded.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for REBASE-DELTA -->
+
+
+<!-- Entry for REMOVE-UUID -->
+
+<p><br>[Generic function]<br><a class=none name='remove-uuid'><b>remove-uuid</b> <i>uuid object</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+Remove the entry for UUID from OBJECT.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for REMOVE-UUID -->
+
+
+<!-- Entry for SCALE -->
+
+<p><br>[Generic accessor]<br><a class=none name='scale'><b>scale</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>scale</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SCALE -->
+
+
+<!-- Entry for SCALE -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>scale</b> <i>(obj sym-addr-addr)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>scale</b> <i>(obj sym-addr-addr)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SCALE -->
+
+
+<!-- Entry for SECTION -->
+
+<p><br>[Standard class]<br><a class=none name='section'><b>section</b></a>
+<blockquote><br>
+
+Section in a GTIRB IR instance.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for SECTION -->
+
+
+<!-- Entry for SECTION -->
+
+<p><br>[Generic accessor]<br><a class=none name='section'><b>section</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>section</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SECTION -->
+
+
+<!-- Entry for SECTION -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>section</b> <i>(object byte-interval)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>section</b> <i>(object byte-interval)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Access the SECTION of this BYTE-INTERVAL.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for SECTION -->
+
+
+<!-- Entry for SECTIONS -->
+
+<p><br>[Generic accessor]<br><a class=none name='sections'><b>sections</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>sections</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SECTIONS -->
+
+
+<!-- Entry for SECTIONS -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>sections</b> <i>(object module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>sections</b> <i>(object module)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+List of the sections comprising this module.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for SECTIONS -->
+
+
+<!-- Entry for SIZE -->
+
+<p><br>[Generic accessor]<br><a class=none name='size'><b>size</b> <i>it</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>size</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SIZE -->
+
+
+<!-- Entry for SIZE -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>size</b> <i>(it data-block)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>size</b> <i>(obj data-block)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+The length of the bytes held by this data block.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for SIZE -->
+
+
+<!-- Entry for SIZE -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>size</b> <i>(it code-block)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>size</b> <i>(obj code-block)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+The length of the bytes held by this code block.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for SIZE -->
+
+
+<!-- Entry for SIZE -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>size</b> <i>(it byte-interval)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>size</b> <i>(obj byte-interval)</i><tt>)</tt> <i>new</i><tt>)</tt></a><tt> :before</tt>
+<blockquote><br>
+
+The size of this byte-interval.
+It is possible for the size of a byte-interval to be larger than the
+number of bytes in the byte interval's <code>contents</code> if portions of the
+byte-interval are not represented statically but are zero-initialized
+at runtime.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for SIZE -->
+
+
+<!-- Entry for SIZE -->
+
+<p><br>[Method]<br><a class=none><b>size</b> <i>(it section)</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SIZE -->
+
+
+<!-- Entry for SYM-ADDR-ADDR -->
+
+<p><br>[Standard class]<br><a class=none name='sym-addr-addr'><b>sym-addr-addr</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SYM-ADDR-ADDR -->
+
+
+<!-- Entry for SYM-ADDR-CONST -->
+
+<p><br>[Standard class]<br><a class=none name='sym-addr-const'><b>sym-addr-const</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SYM-ADDR-CONST -->
+
+
+<!-- Entry for SYM-STACK-CONST -->
+
+<p><br>[Standard class]<br><a class=none name='sym-stack-const'><b>sym-stack-const</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SYM-STACK-CONST -->
+
+
+<!-- Entry for SYMBOL -->
+
+<p><br>[Standard class]<br><a class=none name='symbol'><b>symbol</b></a>
+<blockquote><br>
+
+Symbol with it's NAME and an optional VALUE or REFERENT.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for SYMBOL -->
+
+
+<!-- Entry for SYMBOLIC-EXPRESSIONS -->
+
+<p><br>[Generic accessor]<br><a class=none name='symbolic-expressions'><b>symbolic-expressions</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>symbolic-expressions</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SYMBOLIC-EXPRESSIONS -->
+
+
+<!-- Entry for SYMBOLIC-EXPRESSIONS -->
+
+<p><br>[Method]<br><a class=none><b>symbolic-expressions</b> <i>(object gtirb-byte-block)</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SYMBOLIC-EXPRESSIONS -->
+
+
+<!-- Entry for SYMBOLIC-EXPRESSIONS -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>symbolic-expressions</b> <i>(object byte-interval)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>symbolic-expressions</b> <i>(object byte-interval)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Hash of symbolic-expressions keyed by offset.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for SYMBOLIC-EXPRESSIONS -->
+
+
+<!-- Entry for SYMBOLS -->
+
+<p><br>[Generic accessor]<br><a class=none name='symbols'><b>symbols</b> <i>object</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>symbols</b> <i>object</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SYMBOLS -->
+
+
+<!-- Entry for SYMBOLS -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>symbols</b> <i>(object symbolic-expression)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>symbols</b> <i>(object symbolic-expression)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Symbol(s) appearing in this symbolic expression.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for SYMBOLS -->
+
+
+<!-- Entry for SYMBOLS -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>symbols</b> <i>(object module)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>symbols</b> <i>(object module)</i><tt>)</tt> <i>new-value</i><tt>)</tt></a>
+<blockquote><br>
+
+Hash-table of symbols keyed by UUID.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for SYMBOLS -->
+
+
+<!-- Entry for UPDATE-PROTO -->
+
+<p><br>[Generic function]<br><a class=none name='update-proto'><b>update-proto</b> <i>proto-backed-object</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+Update and return the <code>proto</code> field of PROTO-BACKED-OBJECT.
+This will ensure that any changes made to PROTO-BACKED-OBJECT outside
+of its protocol buffer, e.g. any slots initialized using the
+:from-proto option to <code>define-proto-backed-class</code>, are synchronized
+against the object's protocol buffer.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for UPDATE-PROTO -->
+
+
+<!-- Entry for UUID -->
+
+<p><br>[Generic function]<br><a class=none name='uuid'><b>uuid</b> <i>object</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+Return the UUID for OBJECT as an integer.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for UUID -->
+
+
+<!-- Entry for VALUE -->
+
+<p><br>[Generic accessor]<br><a class=none name='value'><b>value</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>value</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VALUE -->
+
+
+<!-- Entry for VALUE -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>value</b> <i>(obj symbol)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>value</b> <i>(obj symbol)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VALUE -->
+
+
+<!-- Entry for VERSION -->
+
+<p><br>[Generic accessor]<br><a class=none name='version'><b>version</b> <i>obj</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>version</b> <i>obj</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VERSION -->
+
+
+<!-- Entry for VERSION -->
+
+<p><br>[Specialized accessor]<br><a class=none><b>version</b> <i>(obj gtirb)</i> =&gt; <i>result</i></a>
+<br><a class=none><tt>(setf (</tt><b>version</b> <i>(obj gtirb)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Protobuf version.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for VERSION -->
+
+
+<!-- Entry for WRITE-GTIRB -->
+
+<p><br>[Function]<br><a class=none name='write-gtirb'><b>write-gtirb</b> <i>gtirb path</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+Write a GTIRB IR object to PATH.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for WRITE-GTIRB -->
+
+
+<!-- Entry for (SETF AUX-DATA-DATA) -->
+
+<p><br>[Method]<br><a class=none><tt>(setf (</tt><b>aux-data-data</b> <i>(obj aux-data)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for (SETF AUX-DATA-DATA) -->
+
+
+<!-- Entry for (SETF AUX-DATA-TYPE) -->
+
+<p><br>[Method]<br><a class=none><tt>(setf (</tt><b>aux-data-type</b> <i>(obj aux-data)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for (SETF AUX-DATA-TYPE) -->
+
+
+<!-- Entry for (SETF ENTRY-POINT) -->
+
+<p><br>[Method]<br><a class=none><tt>(setf (</tt><b>entry-point</b> <i>(obj module)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for (SETF ENTRY-POINT) -->
+
+
+<!-- Entry for (SETF PAYLOAD) -->
+
+<p><br>[Method]<br><a class=none><tt>(setf (</tt><b>payload</b> <i>(symbol symbol)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for (SETF PAYLOAD) -->
+
+
+<!-- Entry for (SETF PAYLOAD) -->
+
+<p><br>[Method]<br><a class=none><tt>(setf (</tt><b>payload</b> <i>(symbol symbol)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Save INTEGER value NEW into the <code>value</code> of SYMBOL.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for (SETF PAYLOAD) -->
+
+
+<!-- Entry for (SETF PAYLOAD) -->
+
+<p><br>[Method]<br><a class=none><tt>(setf (</tt><b>payload</b> <i>(symbol symbol)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+Save GTIRB object NEW into the <code>referent-uuid</code> of SYMBOL.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for (SETF PAYLOAD) -->
+
+
+<!-- Entry for (SETF SIZE) -->
+
+<p><br>[Method]<br><a class=none><tt>(setf (</tt><b>size</b> <i>(obj byte-interval)</i><tt>)</tt> <i>new</i><tt>)</tt></a>
+<blockquote><br>
+
+The size of this byte-interval.
+It is possible for the size of a byte-interval to be larger than the
+number of bytes in the byte interval's <code>contents</code> if portions of the
+byte-interval are not represented statically but are zero-initialized
+at runtime.
+
+
+
+
+</blockquote>
+
+<!-- End of entry for (SETF SIZE) -->
+</body></html>

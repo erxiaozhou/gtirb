@@ -1,0 +1,6 @@
+wiki/
+build/
+build-doc/
+googletest-src
+
+*.fasl

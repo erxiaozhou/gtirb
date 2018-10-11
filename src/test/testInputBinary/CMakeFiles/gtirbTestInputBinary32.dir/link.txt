@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/gtirbTestInputBinary32.dir/TestInputBinary.cpp.o  -o ../../../bin/gtirbTestInputBinary32  -ldl 
